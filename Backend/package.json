@@ -1,24 +1,16 @@
 {
-  "name": "ev-booking-system",
+  "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "src/server.js",
-"scripts": {
+  "main": "index.js",
+  "scripts": {
   "start": "node src/server.js",
   "dev": "nodemon src/server.js"
 },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sahil786a/ev-booking-system.git"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/sahil786a/ev-booking-system/issues"
-  },
-  "homepage": "https://github.com/sahil786a/ev-booking-system#readme",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
