@@ -102,6 +102,7 @@ const getMyBookings = async (req, res) => {
 
 const updateBookingStatus = async (req, res) => {
   try {
+    const vendorId = req.user.id;
     const { id } = req.params;
     const { status } = req.body;
 
@@ -114,16 +115,19 @@ const updateBookingStatus = async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE bookings
+      `UPDATE bookings AS booking
        SET status = $1
-       WHERE id = $2
-       RETURNING *`,
-      [status, id]
+       FROM stations AS station
+       WHERE booking.id = $2
+         AND booking.station_id = station.id
+         AND station.vendor_id = $3
+       RETURNING booking.*`,
+      [status, id, vendorId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Booking not found",
+        message: "Booking not found for this vendor",
       });
     }
 

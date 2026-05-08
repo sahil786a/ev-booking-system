@@ -2,6 +2,7 @@ const pool = require("../config/db");
 
 const addStation = async (req, res) => {
   try {
+    const vendorId = req.user.id;
     const { name, latitude, longitude, contact, total_slots } = req.body;
 
     if (!name || latitude === undefined || longitude === undefined || !contact || total_slots === undefined) {
@@ -17,10 +18,10 @@ const addStation = async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO stations (name, latitude, longitude, contact, total_slots)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO stations (vendor_id, name, latitude, longitude, contact, total_slots)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, latitude, longitude, contact, total_slots]
+      [vendorId, name, latitude, longitude, contact, total_slots]
     );
 
     return res.status(201).json({
@@ -36,7 +37,16 @@ const addStation = async (req, res) => {
 
 const getAllStations = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM stations ORDER BY id ASC");
+    const result = await pool.query(
+      `SELECT stations.*,
+              (stations.total_slots - COUNT(bookings.id)::int) AS available_slots
+       FROM stations
+       LEFT JOIN bookings
+         ON bookings.station_id = stations.id
+        AND bookings.status = 'booked'
+       GROUP BY stations.id
+       ORDER BY stations.id ASC`
+    );
 
     return res.status(200).json({
       stations: result.rows,
@@ -44,6 +54,25 @@ const getAllStations = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Server error while fetching stations",
+    });
+  }
+};
+
+const getMyStations = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+
+    const result = await pool.query(
+      "SELECT * FROM stations WHERE vendor_id = $1 ORDER BY id ASC",
+      [vendorId]
+    );
+
+    return res.status(200).json({
+      stations: result.rows,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server error while fetching vendor stations",
     });
   }
 };
@@ -72,6 +101,7 @@ const getStationById = async (req, res) => {
 
 const updateStation = async (req, res) => {
   try {
+    const vendorId = req.user.id;
     const { id } = req.params;
     const { name, latitude, longitude, contact, total_slots } = req.body;
 
@@ -90,14 +120,14 @@ const updateStation = async (req, res) => {
     const result = await pool.query(
       `UPDATE stations
        SET name = $1, latitude = $2, longitude = $3, contact = $4, total_slots = $5
-       WHERE id = $6
+       WHERE id = $6 AND vendor_id = $7
        RETURNING *`,
-      [name, latitude, longitude, contact, total_slots, id]
+      [name, latitude, longitude, contact, total_slots, id, vendorId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Station not found",
+        message: "Station not found for this vendor",
       });
     }
 
@@ -114,16 +144,17 @@ const updateStation = async (req, res) => {
 
 const deleteStation = async (req, res) => {
   try {
+    const vendorId = req.user.id;
     const { id } = req.params;
 
     const result = await pool.query(
-      "DELETE FROM stations WHERE id = $1 RETURNING *",
-      [id]
+      "DELETE FROM stations WHERE id = $1 AND vendor_id = $2 RETURNING *",
+      [id, vendorId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Station not found",
+        message: "Station not found for this vendor",
       });
     }
 
@@ -140,6 +171,7 @@ const deleteStation = async (req, res) => {
 module.exports = {
   addStation,
   getAllStations,
+  getMyStations,
   getStationById,
   updateStation,
   deleteStation,
