@@ -1,15 +1,20 @@
 const pool = require("../config/db");
 
+const toPositiveInteger = (value) => {
+  const numberValue = Number(value);
+  return Number.isInteger(numberValue) && numberValue > 0 ? numberValue : null;
+};
+
 const createBooking = async (req, res) => {
   const client = await pool.connect();
 
   try {
     const userId = req.user.id;
-    const { station_id } = req.body;
+    const stationId = toPositiveInteger(req.body.station_id);
 
-    if (!station_id) {
+    if (!stationId) {
       return res.status(400).json({
-        message: "Station id is required",
+        message: "Station id must be a positive integer",
       });
     }
 
@@ -17,7 +22,7 @@ const createBooking = async (req, res) => {
 
     const stationResult = await client.query(
       "SELECT * FROM stations WHERE id = $1 FOR UPDATE",
-      [station_id]
+      [stationId]
     );
 
     if (stationResult.rows.length === 0) {
@@ -33,7 +38,7 @@ const createBooking = async (req, res) => {
       `SELECT COUNT(*)::int AS active_bookings
        FROM bookings
        WHERE station_id = $1 AND status = 'booked'`,
-      [station_id]
+      [stationId]
     );
 
     const activeBookings = activeBookingsResult.rows[0].active_bookings;
@@ -49,7 +54,7 @@ const createBooking = async (req, res) => {
       `INSERT INTO bookings (user_id, station_id)
        VALUES ($1, $2)
        RETURNING *`,
-      [userId, station_id]
+      [userId, stationId]
     );
 
     await client.query("COMMIT");
@@ -106,11 +111,11 @@ const updateBookingStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ["booked", "completed", "cancelled"];
+    const allowedStatuses = ["completed", "cancelled"];
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({
-        message: "Status must be booked, completed, or cancelled",
+        message: "Status must be completed or cancelled",
       });
     }
 
@@ -121,13 +126,14 @@ const updateBookingStatus = async (req, res) => {
        WHERE booking.id = $2
          AND booking.station_id = station.id
          AND station.vendor_id = $3
+         AND booking.status = 'booked'
        RETURNING booking.*`,
       [status, id, vendorId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Booking not found for this vendor",
+        message: "Active booking not found for this vendor",
       });
     }
 
@@ -150,14 +156,14 @@ const cancelBooking = async (req, res) => {
     const result = await pool.query(
       `UPDATE bookings
        SET status = 'cancelled'
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1 AND user_id = $2 AND status = 'booked'
        RETURNING *`,
       [id, userId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: "Booking not found for this user",
+        message: "Active booking not found for this user",
       });
     }
 

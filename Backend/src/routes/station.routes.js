@@ -4,6 +4,7 @@ const {
   getAllStations,
   getMyStations,
   getStationById,
+  getStationAvailability,
   updateStation,
   deleteStation,
 } = require("../controllers/station.controller");
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post("/", ...requireVendor, addStation);
 router.get("/", getAllStations);
 router.get("/mine", ...requireVendor, getMyStations);
+router.get("/:id/availability", getStationAvailability);
 router.get("/:id", getStationById);
 router.put("/:id", ...requireVendor, updateStation);
 router.delete("/:id", ...requireVendor, deleteStation);

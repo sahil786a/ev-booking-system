@@ -6,12 +6,28 @@ const bookingRoutes = require("./routes/booking.routes");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.disable("x-powered-by");
+
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+  : true;
+
+app.use(
+  cors({
+    origin: corsOrigin,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (req, res) => {
   res.status(200).json({
     message: "EV Booking System Backend is running",
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
   });
 });
 
@@ -26,6 +42,14 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    return res.status(400).json({
+      message: "Invalid JSON body",
+    });
+  }
+
+  console.error(error);
+
   res.status(500).json({
     message: "Internal server error",
   });
