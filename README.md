@@ -1,6 +1,8 @@
 # EV Charging Booking System Backend
 
-Production-focused REST API for an EV charging station booking system.
+Production-focused REST API for an EV charging station locator and slot booking
+system. Payment and SMS booking are planned future modules; the current backend
+implements the working MVP booking flow.
 
 ## Tech Stack
 
@@ -15,32 +17,31 @@ Production-focused REST API for an EV charging station booking system.
 
 ```text
 Backend/
-├── migrations/
-├── scripts/
-├── src/
-│   ├── app.js
-│   ├── server.js
-│   ├── config/
-│   ├── constants/
-│   ├── controllers/
-│   ├── middleware/
-│   └── routes/
-└── test/
+  migrations/
+  scripts/
+  src/
+    app.js
+    server.js
+    config/
+    constants/
+    controllers/
+    middleware/
+    routes/
+    utils/
+  test/
 ```
 
 ## Local Setup
 
 ```powershell
 cd Backend
-npm install
+npm.cmd install
+npm.cmd run migrate
+npm.cmd run dev
 ```
 
-Create `Backend/.env` from `Backend/.env.example`, then update the database password and JWT secret.
-
-```powershell
-npm run migrate
-npm run dev
-```
+Create `Backend/.env` from `Backend/.env.example`, then update the database
+password and JWT secret.
 
 Health check:
 
@@ -78,18 +79,57 @@ Bookings:
 ```text
 POST  /api/bookings
 GET   /api/bookings/my
+GET   /api/bookings/vendor
 PATCH /api/bookings/:id/status
 PATCH /api/bookings/:id/cancel
+```
+
+## Booking Request Formats
+
+Immediate booking, defaults to a one-hour slot from the current time:
+
+```json
+{
+  "station_id": 4
+}
+```
+
+Scheduled booking with local date and time:
+
+```json
+{
+  "station_id": 4,
+  "booking_date": "2026-05-09",
+  "start_time": "10:00",
+  "end_time": "11:00"
+}
+```
+
+Scheduled booking with ISO timestamps:
+
+```json
+{
+  "station_id": 4,
+  "slot_start": "2026-05-09T10:00:00+05:30",
+  "slot_end": "2026-05-09T11:00:00+05:30"
+}
+```
+
+Availability can use the same time-window query fields:
+
+```text
+GET /api/stations/4/availability?booking_date=2026-05-09&start_time=10:00&end_time=11:00
 ```
 
 ## Roles
 
 - `USER`: can create/cancel their own bookings.
-- `VENDOR`: can create/update/delete their stations and complete/cancel bookings for their stations.
+- `VENDOR`: can create/update/delete their stations and complete/cancel bookings
+  for their stations.
 
 ## Tests
 
 ```powershell
 cd Backend
-npm test
+npm.cmd test
 ```

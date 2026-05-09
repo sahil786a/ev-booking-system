@@ -1,27 +1,61 @@
 const pool = require("../config/db");
+const {
+  buildBookingWindow,
+  toPositiveInteger,
+} = require("../utils/validation");
 
-const toPositiveInteger = (value) => {
-  const numberValue = Number(value);
-  return Number.isInteger(numberValue) && numberValue > 0 ? numberValue : null;
-};
+const BOOKING_STATUSES = Object.freeze(["booked", "completed", "cancelled"]);
+const VENDOR_STATUS_UPDATES = Object.freeze(["completed", "cancelled"]);
+
+const buildBookingSelect = `
+  SELECT bookings.id,
+         bookings.user_id,
+         bookings.station_id,
+         bookings.status,
+         bookings.slot_start,
+         bookings.slot_end,
+         bookings.completed_at,
+         bookings.cancelled_at,
+         bookings.created_at,
+         bookings.updated_at,
+         stations.name AS station_name,
+         stations.latitude,
+         stations.longitude,
+         stations.contact
+  FROM bookings
+  JOIN stations ON bookings.station_id = stations.id
+`;
 
 const createBooking = async (req, res) => {
-  const client = await pool.connect();
+  const userId = req.user.id;
+  const stationId = toPositiveInteger(req.body.station_id);
+
+  if (!stationId) {
+    return res.status(400).json({
+      message: "Station id must be a positive integer",
+    });
+  }
+
+  const bookingWindow = buildBookingWindow(req.body);
+
+  if (bookingWindow.error) {
+    return res.status(400).json({
+      message: bookingWindow.error,
+    });
+  }
+
+  const { slot_start: slotStart, slot_end: slotEnd } = bookingWindow.value;
+  let client;
 
   try {
-    const userId = req.user.id;
-    const stationId = toPositiveInteger(req.body.station_id);
-
-    if (!stationId) {
-      return res.status(400).json({
-        message: "Station id must be a positive integer",
-      });
-    }
-
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const stationResult = await client.query(
-      "SELECT * FROM stations WHERE id = $1 FOR UPDATE",
+      `SELECT id, total_slots
+       FROM stations
+       WHERE id = $1 AND is_active = TRUE
+       FOR UPDATE`,
       [stationId]
     );
 
@@ -34,27 +68,31 @@ const createBooking = async (req, res) => {
 
     const station = stationResult.rows[0];
 
-    const activeBookingsResult = await client.query(
+    const overlappingBookingsResult = await client.query(
       `SELECT COUNT(*)::int AS active_bookings
        FROM bookings
-       WHERE station_id = $1 AND status = 'booked'`,
-      [stationId]
+       WHERE station_id = $1
+         AND status = 'booked'
+         AND slot_start < $3
+         AND slot_end > $2`,
+      [stationId, slotStart, slotEnd]
     );
 
-    const activeBookings = activeBookingsResult.rows[0].active_bookings;
+    const activeBookings =
+      overlappingBookingsResult.rows[0].active_bookings;
 
     if (activeBookings >= station.total_slots) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        message: "No slots available at this station",
+        message: "No slots available at this station for the selected time",
       });
     }
 
     const bookingResult = await client.query(
-      `INSERT INTO bookings (user_id, station_id)
-       VALUES ($1, $2)
+      `INSERT INTO bookings (user_id, station_id, slot_start, slot_end)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [userId, stationId]
+      [userId, stationId, slotStart, slotEnd]
     );
 
     await client.query("COMMIT");
@@ -65,13 +103,17 @@ const createBooking = async (req, res) => {
       available_slots: station.total_slots - activeBookings - 1,
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
 
     return res.status(500).json({
       message: "Server error while creating booking",
     });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 
@@ -80,16 +122,7 @@ const getMyBookings = async (req, res) => {
     const userId = req.user.id;
 
     const result = await pool.query(
-      `SELECT bookings.id,
-              bookings.status,
-              bookings.created_at,
-              stations.id AS station_id,
-              stations.name AS station_name,
-              stations.latitude,
-              stations.longitude,
-              stations.contact
-       FROM bookings
-       JOIN stations ON bookings.station_id = stations.id
+      `${buildBookingSelect}
        WHERE bookings.user_id = $1
        ORDER BY bookings.id DESC`,
       [userId]
@@ -105,15 +138,70 @@ const getMyBookings = async (req, res) => {
   }
 };
 
+const getVendorBookings = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+    const { status } = req.query;
+    const params = [vendorId];
+    let statusFilter = "";
+
+    if (status !== undefined) {
+      if (!BOOKING_STATUSES.includes(status)) {
+        return res.status(400).json({
+          message: "Status must be booked, completed, or cancelled",
+        });
+      }
+
+      params.push(status);
+      statusFilter = "AND bookings.status = $2";
+    }
+
+    const result = await pool.query(
+      `SELECT bookings.id,
+              bookings.user_id,
+              users.name AS user_name,
+              users.email AS user_email,
+              bookings.station_id,
+              stations.name AS station_name,
+              bookings.status,
+              bookings.slot_start,
+              bookings.slot_end,
+              bookings.completed_at,
+              bookings.cancelled_at,
+              bookings.created_at,
+              bookings.updated_at
+       FROM bookings
+       JOIN stations ON bookings.station_id = stations.id
+       JOIN users ON bookings.user_id = users.id
+       WHERE stations.vendor_id = $1
+       ${statusFilter}
+       ORDER BY bookings.id DESC`,
+      params
+    );
+
+    return res.status(200).json({
+      bookings: result.rows,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server error while fetching vendor bookings",
+    });
+  }
+};
+
 const updateBookingStatus = async (req, res) => {
   try {
     const vendorId = req.user.id;
-    const { id } = req.params;
+    const bookingId = toPositiveInteger(req.params.id);
     const { status } = req.body;
 
-    const allowedStatuses = ["completed", "cancelled"];
+    if (!bookingId) {
+      return res.status(400).json({
+        message: "Booking id must be a positive integer",
+      });
+    }
 
-    if (!status || !allowedStatuses.includes(status)) {
+    if (!status || !VENDOR_STATUS_UPDATES.includes(status)) {
       return res.status(400).json({
         message: "Status must be completed or cancelled",
       });
@@ -121,14 +209,16 @@ const updateBookingStatus = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE bookings AS booking
-       SET status = $1
+       SET status = $1,
+           completed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE completed_at END,
+           cancelled_at = CASE WHEN $1 = 'cancelled' THEN NOW() ELSE cancelled_at END
        FROM stations AS station
        WHERE booking.id = $2
          AND booking.station_id = station.id
          AND station.vendor_id = $3
          AND booking.status = 'booked'
        RETURNING booking.*`,
-      [status, id, vendorId]
+      [status, bookingId, vendorId]
     );
 
     if (result.rows.length === 0) {
@@ -151,14 +241,21 @@ const updateBookingStatus = async (req, res) => {
 const cancelBooking = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { id } = req.params;
+    const bookingId = toPositiveInteger(req.params.id);
+
+    if (!bookingId) {
+      return res.status(400).json({
+        message: "Booking id must be a positive integer",
+      });
+    }
 
     const result = await pool.query(
       `UPDATE bookings
-       SET status = 'cancelled'
+       SET status = 'cancelled',
+           cancelled_at = NOW()
        WHERE id = $1 AND user_id = $2 AND status = 'booked'
        RETURNING *`,
-      [id, userId]
+      [bookingId, userId]
     );
 
     if (result.rows.length === 0) {
@@ -181,6 +278,7 @@ const cancelBooking = async (req, res) => {
 module.exports = {
   createBooking,
   getMyBookings,
+  getVendorBookings,
   updateBookingStatus,
   cancelBooking,
 };
