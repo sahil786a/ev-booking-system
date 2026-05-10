@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "EV Charge Booking",
+    "slug": "ev-user-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "evuserapp",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f766e"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We use your location to show nearby charging stations and help you navigate when you're on the move.",
+        "NSLocationAlwaysUsageDescription": "Optional future use for reminders when you're near your booked station.",
+        "UIBackgroundModes": []
+      },
+      "config": {}
+    },
+    "android": {
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f766e"
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow EV Charge Booking to use your location while using the app to find nearby chargers."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {}
+    }
+  }
+}
