@@ -32,7 +32,6 @@ export async function ensureForegroundPermission(): Promise<GeoPosition | null> 
     return null;
   }
 }
-}
 
 export async function getPermissionStatus(): Promise<Location.PermissionStatus> {
   const res = await Location.getForegroundPermissionsAsync();
