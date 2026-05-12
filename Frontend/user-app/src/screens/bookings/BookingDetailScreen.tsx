@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { cancelBooking } from '../../api/bookingApi';
 import { checkIn, checkOut } from '../../api/arrivalApi';
 import { normalizeApiError } from '../../api/client';
@@ -16,6 +16,7 @@ import { bookingQueryKeys } from '../../constants/queryKeys';
 import { useBooking } from '../../hooks/useBookings';
 import { distanceKm } from '../../services/distanceService';
 import { ensureForegroundPermission } from '../../services/locationService';
+import { openExternalDirections } from '../../services/navigationService';
 import { colors, spacing, typography } from '../../styles/theme';
 import { canUserCancel, stationLabelFromBooking } from '../../utils/booking';
 import { shouldWarnImminent } from '../../utils/bookingTiming';
@@ -149,14 +150,18 @@ export default function BookingDetailScreen(): JSX.Element {
         <Button
           variant="secondary"
           title="Open in Google Maps"
-          onPress={() => {
-            const b = booking as any;
-            const lat = b.latitude ?? b.station_lat;
-            const lon = b.longitude ?? b.station_lon;
-            if (lat != null && lon != null) {
-              void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`);
-            } else {
-              Alert.alert('No coordinates', 'Station coordinates not available for this booking.');
+          onPress={async () => {
+            try {
+              const b = booking as any;
+              const lat = b.latitude ?? b.station_lat;
+              const lon = b.longitude ?? b.station_lon;
+              if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
+                Alert.alert('No coordinates', 'Station coordinates not available for this booking.');
+                return;
+              }
+              await openExternalDirections(lat, lon, b.station_name ?? undefined);
+            } catch (err) {
+              Alert.alert('Directions error', 'Unable to open directions.');
             }
           }}
         />

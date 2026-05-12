@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, View, Alert } from 'react-native';
+import { StyleSheet, Text, View, Alert } from 'react-native';
 
 import type { DiscoverStackParamList } from '../../navigation/UserNavigator';
 import AvailabilityBadge from '../../components/stations/AvailabilityBadge';
@@ -14,6 +14,7 @@ import Screen from '../../components/common/Screen';
 import { useStationAvailability, useStationDetail } from '../../hooks/useStations';
 import { useDeviceLocation } from '../../hooks/useLocation';
 import { distanceKm } from '../../services/distanceService';
+import { openExternalDirections } from '../../services/navigationService';
 import { useStationRealtime } from '../../services/realtimeService';
 import { colors, spacing, typography } from '../../styles/theme';
 import { todayDateString } from '../../utils/dateFormat';
@@ -152,12 +153,18 @@ export default function StationDetailScreen(): JSX.Element {
         <Button
           variant="ghost"
           title="Get Directions"
-          onPress={() => {
-            if (!station.lat || !station.lng) {
-              Alert.alert('No coordinates', 'This station does not have GPS coordinates set.');
-              return;
+          onPress={async () => {
+            try {
+              const lat = station.lat ?? station.latitude;
+              const lng = station.lng ?? station.longitude;
+              if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+                Alert.alert('No coordinates', 'This station does not have GPS coordinates set.');
+                return;
+              }
+              await openExternalDirections(lat as any, lng as any, station.name ?? undefined);
+            } catch (err) {
+              Alert.alert('Directions error', 'Unable to open directions.');
             }
-            Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`);
           }}
         />
       </Card>
