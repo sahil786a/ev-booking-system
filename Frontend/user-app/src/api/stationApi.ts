@@ -70,8 +70,20 @@ export async function fetchAvailability(
 }
 
 export function normalizeStation(station: Station): Station {
+  // Convert coordinates to numbers (PostgreSQL NUMERIC returns as strings)
   const lat = station.lat ?? station.latitude ?? null;
   const lng = station.lng ?? station.longitude ?? null;
+  
+  const normalizedLat = lat != null ? Number(lat) : null;
+  const normalizedLng = lng != null ? Number(lng) : null;
+  
   const name = station.name ?? station.title ?? 'Charging hub';
-  return { ...station, lat, lng, name };
+  return { 
+    ...station, 
+    lat: normalizedLat, 
+    lng: normalizedLng, 
+    latitude: normalizedLat,
+    longitude: normalizedLng,
+    name 
+  };
 }

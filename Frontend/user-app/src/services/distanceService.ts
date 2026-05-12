@@ -1,12 +1,24 @@
 /** Haversine distance in kilometers; latitude/longitude in decimal degrees */
 export function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  // Ensure all inputs are numbers (handles string coordinates from API)
+  const lat1Num = Number(lat1);
+  const lon1Num = Number(lon1);
+  const lat2Num = Number(lat2);
+  const lon2Num = Number(lon2);
+  
+  // Validate that all are finite numbers
+  if (!Number.isFinite(lat1Num) || !Number.isFinite(lon1Num) || 
+      !Number.isFinite(lat2Num) || !Number.isFinite(lon2Num)) {
+    return 0;
+  }
+  
   const R = 6371;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLat = toRad(lat2Num - lat1Num);
+  const dLon = toRad(lon2Num - lon1Num);
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    Math.cos(toRad(lat1Num)) * Math.cos(toRad(lat2Num)) * Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
