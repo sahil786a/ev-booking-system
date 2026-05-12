@@ -244,8 +244,7 @@ const updateBookingStatus = async (req, res) => {
   }
 };
 
-const 
-cancelBooking = async (req, res) => {
+const cancelBooking = async (req, res) => {
   try {
     const userId = req.user.id;
     const bookingId = toPositiveInteger(req.params.id);

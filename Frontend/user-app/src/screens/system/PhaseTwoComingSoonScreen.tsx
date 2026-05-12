@@ -18,12 +18,13 @@ export default function PhaseTwoComingSoonScreen(): JSX.Element {
     <Screen>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.lead}>
-        This feature relies on native device APIs and third-party map integrations (like Google Maps or Mapbox).
+        These features are on the roadmap and will ship in future releases of the mobile app.
       </Text>
       <Card>
-        <Text style={styles.bullet}>• In-app turn-by-turn navigation (Coming in Mobile V2).</Text>
-        <Text style={styles.bullet}>• Advanced Map routing & traffic data.</Text>
-        <Text style={styles.bullet}>• (Backend APIs for live sockets and arrivals are fully operational!)</Text>
+        <Text style={styles.bullet}>• In-app turn-by-turn navigation (Google Maps / Mapbox SDK).</Text>
+        <Text style={styles.bullet}>• Payments gateway — pay for sessions in-app.</Text>
+        <Text style={styles.bullet}>• Offline SMS-based booking for areas with limited data.</Text>
+        <Text style={styles.bullet}>• Push notifications for queue promotions and session reminders.</Text>
       </Card>
     </Screen>
   );

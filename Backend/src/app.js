@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const authRoutes = require("./routes/auth.routes");
 const stationRoutes = require("./routes/station.routes");
 const bookingRoutes = require("./routes/booking.routes");
@@ -10,9 +12,24 @@ const app = express();
 
 app.disable("x-powered-by");
 
+// ── Security headers (CSP, HSTS, etc.) ──
+app.use(helmet());
+
+// ── Auth rate limiter: 20 requests per 15 minutes per IP ──
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests — please try again in 15 minutes" },
+});
+
+// In production set CORS_ORIGIN to your actual client origins (comma-separated).
+// Defaulting to "*" (explicit string) rather than `true` so it is obvious
+// when the env var is not configured.
 const corsOrigin = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
-  : true;
+  : "*";
 
 app.use(
   cors({
@@ -33,7 +50,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/stations", stationRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/queue", queueRoutes);

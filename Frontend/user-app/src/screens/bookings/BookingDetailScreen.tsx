@@ -2,7 +2,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { cancelBooking } from '../../api/bookingApi';
 import { checkIn, checkOut } from '../../api/arrivalApi';
 import { normalizeApiError } from '../../api/client';
@@ -41,8 +41,9 @@ export default function BookingDetailScreen(): JSX.Element {
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelBooking(bookingId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
+    onSuccess: () => {
+      Alert.alert('Cancelled', 'Your booking has been successfully cancelled.');
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
       navigation.goBack();
     },
     onError: (err) => {
@@ -82,10 +83,10 @@ export default function BookingDetailScreen(): JSX.Element {
     mutationFn: async (coords: { latitude: number; longitude: number }) => {
       return checkIn(bookingId, coords.latitude, coords.longitude);
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       Alert.alert('Checked In!', `You are ${data.distance_m}m from the station.`);
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
     },
     onError: (err) => {
       const normalized = normalizeApiError(err);
@@ -97,10 +98,10 @@ export default function BookingDetailScreen(): JSX.Element {
     mutationFn: async (coords: { latitude: number; longitude: number }) => {
       return checkOut(bookingId, coords.latitude, coords.longitude);
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       Alert.alert('Checked Out!', `Session completed successfully.`);
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
       navigation.goBack();
     },
     onError: (err) => {
@@ -133,7 +134,7 @@ export default function BookingDetailScreen(): JSX.Element {
       {warnImminent ? (
         <Card style={styles.warnCard}>
           <Text style={styles.warnText}>
-            Heads up — session starts soon. No-show tagging still needs backend automation (Phase 2 endpoint).
+            ⏱ Heads up — your session starts soon. Check in at the station to confirm your arrival and avoid a no-show mark.
           </Text>
         </Card>
       ) : null}
@@ -143,15 +144,21 @@ export default function BookingDetailScreen(): JSX.Element {
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Stay oriented</Text>
         <Text style={styles.bodyMuted}>
-          Turn-by-turn navigation launches once the mobile maps integration ships. For now we’ll deep link externally in a future
-          update.
+          Opens Google Maps with directions to the station. In-app navigation arrives in Phase 2.
         </Text>
         <Button
           variant="secondary"
-          title="Navigation placeholder"
-          onPress={() =>
-            Alert.alert('Navigation preview', 'Requires backend Phase 2 endpoint for smart routing metadata.')
-          }
+          title="Open in Google Maps"
+          onPress={() => {
+            const b = booking as any;
+            const lat = b.latitude ?? b.station_lat;
+            const lon = b.longitude ?? b.station_lon;
+            if (lat != null && lon != null) {
+              void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`);
+            } else {
+              Alert.alert('No coordinates', 'Station coordinates not available for this booking.');
+            }
+          }}
         />
       </Card>
 

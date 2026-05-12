@@ -5,6 +5,19 @@ import { useEffect } from 'react';
 import { bookingQueryKeys, stationQueryKeys } from '../constants/queryKeys';
 import { getApiBaseUrl } from '../utils/constants';
 
+type SlotUpdatePayload = {
+  station_id: number | string;
+  available_slots: number;
+  total_slots: number;
+  ts: number;
+};
+
+type QueueUpdatePayload = {
+  station_id: number | string;
+  queue_length: number;
+  ts: number;
+};
+
 let socket: Socket | null = null;
 
 export function initSocket() {
@@ -13,7 +26,7 @@ export function initSocket() {
       transports: ['websocket'],
       autoConnect: true,
     });
-    
+
     socket.on('connect', () => {
       console.log('[Socket] Connected');
     });
@@ -37,31 +50,32 @@ export function defaultPollIntervalMs(): number {
 export function useStationRealtime(stationId: number | string | undefined, client: QueryClient) {
   useEffect(() => {
     if (!stationId) return;
-    
+
     const s = initSocket();
     const sid = String(stationId);
-    
+    const numericId = Number(stationId);
+
     s.emit('subscribe_station', sid);
     console.log(`[Socket] Subscribed to station:${sid}`);
-    
-    const onSlotUpdate = (data: any) => {
+
+    // Guard: only act on events for THIS station's id to prevent cross-screen pollution
+    const onSlotUpdate = (data: SlotUpdatePayload) => {
+      if (String(data.station_id) !== sid) return;
       console.log(`[Socket] slot_update for station:${sid}`, data);
-      // Invalidate the specific station's queries to refetch
-      void client.invalidateQueries({ queryKey: stationQueryKeys.detail(Number(sid)) });
-      void client.invalidateQueries({ queryKey: stationQueryKeys.availability(Number(sid)) });
-      // Invalidate bookings if we have any active
+      void client.invalidateQueries({ queryKey: stationQueryKeys.detail(numericId) });
+      void client.invalidateQueries({ queryKey: stationQueryKeys.availability(numericId) });
       void client.invalidateQueries({ queryKey: bookingQueryKeys.mine });
     };
 
-    const onQueueUpdate = (data: any) => {
+    const onQueueUpdate = (data: QueueUpdatePayload) => {
+      if (String(data.station_id) !== sid) return;
       console.log(`[Socket] queue_update for station:${sid}`, data);
-      // We can invalidate a custom query key for queue status here when needed
-      void client.invalidateQueries({ queryKey: ['queue', Number(sid)] });
+      void client.invalidateQueries({ queryKey: ['queue', numericId] });
     };
-    
+
     s.on('slot_update', onSlotUpdate);
     s.on('queue_update', onQueueUpdate);
-    
+
     return () => {
       s.emit('unsubscribe_station', sid);
       s.off('slot_update', onSlotUpdate);

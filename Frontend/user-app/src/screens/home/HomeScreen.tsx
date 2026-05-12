@@ -2,7 +2,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Linking, Alert } from 'react-native';
 import { MapPin, Navigation, Radar, TimerReset } from 'lucide-react-native';
 
 import type { DiscoverStackParamList } from '../../navigation/UserNavigator';
@@ -44,12 +44,9 @@ export default function HomeScreen(): JSX.Element {
 
   const nextBooking = useMemo(() => {
     const list = bookingsQuery.data ?? [];
-    return (
-      list.find((booking) => {
-        const status = String(booking.status ?? '').toLowerCase();
-        return ['pending', 'confirmed', 'active'].includes(status);
-      }) ?? null
-    );
+    // Backend statuses: 'booked' | 'completed' | 'cancelled' | 'no_show'
+    // 'booked' is the only active/in-progress state
+    return list.find((booking) => String(booking.status ?? '').toLowerCase() === 'booked') ?? null;
   }, [bookingsQuery.data]);
 
   const featured = useMemo(() => {
@@ -115,8 +112,30 @@ export default function HomeScreen(): JSX.Element {
         <Shortcut icon={<MapPin color="#fff" size={18} />} label="Nearby" onPress={() => navigation.navigate('Nearby')} />
         <Shortcut
           icon={<Navigation color="#fff" size={18} />}
-          label="Map View"
-          onPress={() => navigation.navigate('Nearby')}
+          label="Navigate"
+          onPress={() => {
+            let targetStation = null;
+            if (nextBooking?.station && typeof nextBooking.station === 'object') {
+              targetStation = nextBooking.station as { lat?: number; lng?: number; latitude?: number; longitude?: number };
+            } else if (featured) {
+              targetStation = featured;
+            }
+
+            if (!targetStation) {
+              Alert.alert('No destination', 'Unable to find a nearby or booked station to navigate to.');
+              return;
+            }
+
+            const lat = targetStation.lat ?? targetStation.latitude;
+            const lng = targetStation.lng ?? targetStation.longitude;
+
+            if (lat == null || lng == null) {
+              Alert.alert('No coordinates', 'The destination station does not have GPS coordinates.');
+              return;
+            }
+
+            Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+          }}
         />
         <Shortcut
           icon={<Radar color="#fff" size={18} />}
