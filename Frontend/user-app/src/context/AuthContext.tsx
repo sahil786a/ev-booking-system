@@ -6,7 +6,7 @@ import { setUnauthorizedHandler } from '../api/client';
 import { navigationRef } from '../navigation/navigationRef';
 import { queryClientSingleton } from '../queryClient';
 import { triggerSoftRefresh } from '../services/realtimeService';
-import { setStoredToken, getStoredToken } from '../services/tokenStorage';
+import { setStoredTokens, getStoredToken, getStoredRefreshToken } from '../services/tokenStorage';
 
 export type AuthState = {
   user: UserProfile | null;
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       const profile = await fetchProfile();
       setUser(profile);
     } catch {
-      await setStoredToken(null);
+      await setStoredTokens(null, null);
       setTokenState(null);
       setUser(null);
     } finally {
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   }, [hydrate]);
 
   const logout = useCallback(async () => {
-    await setStoredToken(null);
+    await setStoredTokens(null, null);
     setTokenState(null);
     setUser(null);
     triggerSoftRefresh(queryClientSingleton);
@@ -79,17 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   }, [announceSessionExpired, logout]);
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {
-    const { token: nextToken } = await loginUser({ email, password });
-    await setStoredToken(nextToken);
+    const { token: nextToken, refreshToken: nextRefresh } = await loginUser({ email, password });
+    await setStoredTokens(nextToken, nextRefresh);
     setTokenState(nextToken);
     const profile = await fetchProfile();
     setUser(profile);
   }, []);
 
   const registerAccount = useCallback(async (payload: { name: string; email: string; password: string }) => {
-    const { token: issuedToken } = await registerUser(payload);
+    const { token: issuedToken, refreshToken: issuedRefresh } = await registerUser(payload);
     if (issuedToken) {
-      await setStoredToken(issuedToken);
+      await setStoredTokens(issuedToken, issuedRefresh);
       setTokenState(issuedToken);
       const profile = await fetchProfile();
       setUser(profile);

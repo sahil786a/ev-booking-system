@@ -1,11 +1,11 @@
 import React, { createContext, useCallback, useEffect, useState } from 'react';
 import { authApi } from '@/api/authApi';
 import {
-  clearToken,
+  clearTokens,
   getStoredVendor,
   getToken,
   setStoredVendor,
-  setToken,
+  setTokens,
 } from '@/utils/tokenStorage';
 import type { AuthState, LoginPayload, RegisterPayload, Vendor } from '@/types';
 
@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setStoredVendor(vendor);
         setState({ vendor, token, isAuthenticated: true, isLoading: false });
       } catch {
-        clearToken();
+        clearTokens();
         setState({ vendor: null, token: null, isAuthenticated: false, isLoading: false });
       }
     };
@@ -48,20 +48,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (payload: LoginPayload) => {
     const res = await authApi.login(payload);
-    setToken(res.token);
+    setTokens(res.token, res.refreshToken);
     setStoredVendor(res.vendor);
     setState({ vendor: res.vendor, token: res.token, isAuthenticated: true, isLoading: false });
   }, []);
 
   const register = useCallback(async (payload: RegisterPayload) => {
     const res = await authApi.register(payload);
-    setToken(res.token);
+    setTokens(res.token, res.refreshToken);
     setStoredVendor(res.vendor);
     setState({ vendor: res.vendor, token: res.token, isAuthenticated: true, isLoading: false });
   }, []);
 
   const logout = useCallback(() => {
-    clearToken();
+    clearTokens();
     setState({ vendor: null, token: null, isAuthenticated: false, isLoading: false });
   }, []);
 

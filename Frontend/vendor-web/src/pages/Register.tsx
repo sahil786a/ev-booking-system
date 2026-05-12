@@ -15,7 +15,7 @@ const schema = z.object({
   business_name: z.string().min(3, 'Business name must be at least 3 characters'),
   email:         z.string().email('Enter a valid email address'),
   phone:         z.string().min(7, 'Enter a valid phone number').max(15),
-  password:      z.string().min(6, 'Password must be at least 6 characters'),
+  password:      z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, {
   message: "Passwords don't match",

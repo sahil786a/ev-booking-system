@@ -27,7 +27,18 @@ async function runTests() {
       password: 'password123'
     });
     const user2Token = resUser2.data.token;
+    const user2Refresh = resUser2.data.refreshToken;
     assert.ok(user2Token, 'User 2 registered and got token');
+    assert.ok(user2Refresh, 'User 2 registered and got refresh token');
+
+    // 2.5 Verify Refresh Token
+    console.log('2.5 Testing Token Refresh for User 2...');
+    const resRefresh = await axios.post(`${API_URL}/auth/refresh`, {
+      refreshToken: user2Refresh
+    });
+    assert.ok(resRefresh.data.token, 'Token refreshed successfully');
+    assert.notStrictEqual(resRefresh.data.token, user2Token, 'New token should be different (though technically could be the same, usually new)');
+    console.log('    -> Token refresh works.');
 
     // 3. Register Vendor
     console.log('3. Registering Vendor...');

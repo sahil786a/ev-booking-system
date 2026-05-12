@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
@@ -35,6 +36,22 @@ const signAccessToken = (account, role) =>
       issuer: getJwtIssuer(),
     }
   );
+
+const generateRefreshToken = async (userId, vendorId) => {
+  const token = crypto.randomBytes(40).toString("hex");
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+
+  const subjectType = userId ? "user" : "vendor";
+
+  await pool.query(
+    `INSERT INTO refresh_tokens (token, user_id, vendor_id, subject_type, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [token, userId || null, vendorId || null, subjectType, expiresAt]
+  );
+
+  return token;
+};
 
 const toPublicAccount = (account, role) => {
   const publicAccount = {
@@ -100,9 +117,12 @@ const registerUser = async (req, res) => {
       [name, email, hashedPassword, ROLES.USER]
     );
 
+    const refreshToken = await generateRefreshToken(newUser.rows[0].id, null);
+
     return res.status(201).json({
       message: "User registered successfully",
       token: signAccessToken(newUser.rows[0], ROLES.USER),
+      refreshToken,
       user: toPublicAccount(newUser.rows[0], ROLES.USER),
     });
   } catch (error) {
@@ -146,9 +166,12 @@ const loginUser = async (req, res) => {
       });
     }
 
+    const refreshToken = await generateRefreshToken(user.id, null);
+
     return res.status(200).json({
       message: "User login successful",
       token: signAccessToken(user, ROLES.USER),
+      refreshToken,
       user: toPublicAccount(user, ROLES.USER),
     });
   } catch (error) {
@@ -200,9 +223,12 @@ const registerVendor = async (req, res) => {
       [name, businessName, email, phone, hashedPassword, ROLES.VENDOR]
     );
 
+    const refreshToken = await generateRefreshToken(null, newVendor.rows[0].id);
+
     return res.status(201).json({
       message: "Vendor registered successfully",
       token: signAccessToken(newVendor.rows[0], ROLES.VENDOR),
+      refreshToken,
       vendor: toPublicAccount(newVendor.rows[0], ROLES.VENDOR),
     });
   } catch (error) {
@@ -248,9 +274,12 @@ const loginVendor = async (req, res) => {
       });
     }
 
+    const refreshToken = await generateRefreshToken(null, vendor.id);
+
     return res.status(200).json({
       message: "Vendor login successful",
       token: signAccessToken(vendor, ROLES.VENDOR),
+      refreshToken,
       vendor: toPublicAccount(vendor, ROLES.VENDOR),
     });
   } catch (error) {
@@ -260,9 +289,67 @@ const loginVendor = async (req, res) => {
   }
 };
 
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken: tokenStr } = req.body;
+    if (!tokenStr) {
+      return res.status(400).json({ message: "Refresh token is required" });
+    }
+
+    const result = await pool.query(
+      `SELECT rt.*, 
+              u.id as u_id, u.name as u_name, u.email as u_email, u.role as u_role,
+              v.id as v_id, v.name as v_name, v.business_name as v_business_name, v.email as v_email, v.phone as v_phone, v.role as v_role
+       FROM refresh_tokens rt
+       LEFT JOIN users u ON rt.user_id = u.id
+       LEFT JOIN vendors v ON rt.vendor_id = v.id
+       WHERE rt.token = $1`,
+      [tokenStr]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const rt = result.rows[0];
+
+    if (rt.revoked_at || new Date(rt.expires_at) < new Date()) {
+      return res.status(401).json({ message: "Refresh token expired or revoked" });
+    }
+
+    let account, role;
+    if (rt.subject_type === "user") {
+      account = { id: rt.u_id, name: rt.u_name, email: rt.u_email };
+      role = rt.u_role;
+    } else {
+      account = {
+        id: rt.v_id,
+        name: rt.v_name,
+        business_name: rt.v_business_name,
+        email: rt.v_email,
+        phone: rt.v_phone,
+      };
+      role = rt.v_role;
+    }
+
+    const token = signAccessToken(account, role);
+
+    return res.status(200).json({
+      message: "Token refreshed successfully",
+      token,
+    });
+  } catch (error) {
+    console.error("[auth] refreshToken error:", error);
+    return res
+      .status(500)
+      .json({ message: "Server error while refreshing token" });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   registerVendor,
   loginVendor,
+  refreshToken,
 };

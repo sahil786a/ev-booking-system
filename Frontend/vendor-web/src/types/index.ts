@@ -32,6 +32,7 @@ export interface RegisterPayload {
 export interface AuthResponse {
   message: string;
   token: string;
+  refreshToken?: string;
   vendor: Vendor;
 }
 

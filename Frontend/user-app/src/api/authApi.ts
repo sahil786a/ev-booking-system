@@ -11,6 +11,7 @@ export type UserProfile = {
 type TokenEnvelope = {
   token?: string;
   accessToken?: string;
+  refreshToken?: string;
   jwt?: string;
   data?: Record<string, unknown>;
 };
@@ -37,27 +38,34 @@ export async function registerUser(payload: {
   name: string;
   email: string;
   password: string;
-}): Promise<{ token: string | null }> {
+}): Promise<{ token: string | null; refreshToken: string | null }> {
   const response = await api.post<UserProfile | TokenEnvelope>('/api/auth/users/register', payload);
   const body = unwrapInner<UserProfile | TokenEnvelope>(response.data);
   const token = coerceToken(body as TokenEnvelope);
-  return { token };
+  const refreshToken = (body as TokenEnvelope).refreshToken ?? null;
+  return { token, refreshToken };
 }
 
 export async function loginUser(payload: {
   email: string;
   password: string;
-}): Promise<{ token: string; profile?: UserProfile | null }> {
+}): Promise<{ token: string; refreshToken: string | null; profile?: UserProfile | null }> {
   const response = await api.post<TokenEnvelope>('/api/auth/users/login', payload);
   const body = unwrapInner<TokenEnvelope>(response.data);
   const token = coerceToken(body as TokenEnvelope);
+  const refreshToken = body.refreshToken ?? null;
   if (!token) {
     throw new Error('Login response missing token.');
   }
-  return { token };
+  return { token, refreshToken };
 }
 
 export async function fetchProfile(): Promise<UserProfile> {
   const response = await api.get<UserProfile>('/api/auth/users/profile');
   return unwrapInner<UserProfile>(response.data);
+}
+
+export async function refreshToken(token: string): Promise<{ token: string }> {
+  const response = await api.post<{ token: string }>('/api/auth/refresh', { refreshToken: token });
+  return unwrapInner<{ token: string }>(response.data);
 }

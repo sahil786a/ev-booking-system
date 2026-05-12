@@ -4,6 +4,7 @@ const {
   loginUser,
   registerVendor,
   loginVendor,
+  refreshToken,
 } = require("../controllers/auth.controller");
 const { requireUser, requireVendor } = require("../middleware/auth.middleware");
 
@@ -13,6 +14,7 @@ router.post("/users/register", registerUser);
 router.post("/users/login", loginUser);
 router.post("/vendors/register", registerVendor);
 router.post("/vendors/login", loginVendor);
+router.post("/refresh", refreshToken);
 
 router.get("/users/profile", ...requireUser, (req, res) => {
   res.status(200).json({

@@ -16,4 +16,9 @@ export const authApi = {
     const { data } = await client.get<{ vendor: Vendor }>('/api/auth/vendors/profile');
     return data.vendor;
   },
+
+  refresh: async (token: string): Promise<{ token: string }> => {
+    const { data } = await client.post<{ token: string }>('/api/auth/refresh', { refreshToken: token });
+    return data;
+  },
 };

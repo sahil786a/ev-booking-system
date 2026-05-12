@@ -5,12 +5,25 @@ import axios, {
   isAxiosError,
 } from 'axios';
 
-import { getStoredToken, setStoredToken } from '../services/tokenStorage';
+import { getStoredToken, setStoredTokens, getStoredRefreshToken } from '../services/tokenStorage';
 import { getApiBaseUrl } from '../utils/constants';
 
 type UnauthorizedFn = () => void;
 
 let unauthorizedHandler: UnauthorizedFn | null = null;
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 export function setUnauthorizedHandler(handler: UnauthorizedFn | null): void {
   unauthorizedHandler = handler;
@@ -85,14 +98,56 @@ api.interceptors.request.use(attachAuth, (error) => Promise.reject(error));
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status;
-    const url = String(error.config?.url ?? '');
+    const url = String(originalRequest?.url ?? '');
+
     const isPublicAuthCall =
-      url.includes('/api/auth/users/login') || url.includes('/api/auth/users/register');
-    if (status === 401 && !isPublicAuthCall) {
-      await setStoredToken(null);
-      unauthorizedHandler?.();
+      url.includes('/api/auth/users/login') || 
+      url.includes('/api/auth/users/register') ||
+      url.includes('/api/auth/refresh');
+
+    if (status === 401 && !isPublicAuthCall && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshTok = await getStoredRefreshToken();
+        if (!refreshTok) throw new Error('No refresh token');
+
+        const refreshRes = await axios.post(`${getApiBaseUrl()}/api/auth/refresh`, {
+          refreshToken: refreshTok,
+        });
+
+        const newToken = refreshRes.data?.token;
+        if (!newToken) throw new Error('Refresh failed');
+
+        await setStoredTokens(newToken);
+        processQueue(null, newToken);
+        isRefreshing = false;
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        isRefreshing = false;
+        await setStoredTokens(null, null);
+        unauthorizedHandler?.();
+        return Promise.reject(refreshErr);
+      }
     }
+
     return Promise.reject(error);
   },
 );

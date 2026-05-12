@@ -10,14 +10,34 @@ export async function getStoredToken(): Promise<string | null> {
   }
 }
 
-export async function setStoredToken(token: string | null): Promise<void> {
+export async function getStoredRefreshToken(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  } catch {
+    return null;
+  }
+}
+
+export async function setStoredTokens(token: string | null, refreshToken?: string | null): Promise<void> {
   try {
     if (token) {
       await AsyncStorage.setItem(STORAGE_KEYS.USER_TOKEN, token);
     } else {
       await AsyncStorage.removeItem(STORAGE_KEYS.USER_TOKEN);
     }
+
+    if (refreshToken !== undefined) {
+      if (refreshToken) {
+        await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      }
+    }
   } catch {
-    // ignore persistence errors — session still works until restart
+    // ignore
   }
+}
+
+export async function setStoredToken(token: string | null): Promise<void> {
+  return setStoredTokens(token);
 }

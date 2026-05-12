@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
   USER_TOKEN: 'ev_user_app_token',
+  REFRESH_TOKEN: 'ev_user_app_refresh_token',
 };
 
 export function getApiBaseUrl(): string {
