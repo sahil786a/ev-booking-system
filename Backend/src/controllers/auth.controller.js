@@ -102,6 +102,7 @@ const registerUser = async (req, res) => {
 
     return res.status(201).json({
       message: "User registered successfully",
+      token: signAccessToken(newUser.rows[0], ROLES.USER),
       user: toPublicAccount(newUser.rows[0], ROLES.USER),
     });
   } catch (error) {
@@ -201,6 +202,7 @@ const registerVendor = async (req, res) => {
 
     return res.status(201).json({
       message: "Vendor registered successfully",
+      token: signAccessToken(newVendor.rows[0], ROLES.VENDOR),
       vendor: toPublicAccount(newVendor.rows[0], ROLES.VENDOR),
     });
   } catch (error) {

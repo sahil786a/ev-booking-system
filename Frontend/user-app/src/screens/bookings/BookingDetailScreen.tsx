@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { cancelBooking } from '../../api/bookingApi';
+import { checkIn, checkOut } from '../../api/arrivalApi';
 import { normalizeApiError } from '../../api/client';
 import type { BookingsStackParamList } from '../../navigation/UserNavigator';
 import BookingTimeCard from '../../components/bookings/BookingTimeCard';
@@ -77,28 +78,48 @@ export default function BookingDetailScreen(): JSX.Element {
     ]);
   };
 
-  const simulateArrival = async () => {
+  const checkInMutation = useMutation({
+    mutationFn: async (coords: { latitude: number; longitude: number }) => {
+      return checkIn(bookingId, coords.latitude, coords.longitude);
+    },
+    onSuccess: async (data) => {
+      Alert.alert('Checked In!', `You are ${data.distance_m}m from the station.`);
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
+    },
+    onError: (err) => {
+      const normalized = normalizeApiError(err);
+      Alert.alert('Check-in failed', normalized.message);
+    },
+  });
+
+  const checkOutMutation = useMutation({
+    mutationFn: async (coords: { latitude: number; longitude: number }) => {
+      return checkOut(bookingId, coords.latitude, coords.longitude);
+    },
+    onSuccess: async (data) => {
+      Alert.alert('Checked Out!', `Session completed successfully.`);
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.mine });
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKeys.detail(bookingId) });
+      navigation.goBack();
+    },
+    onError: (err) => {
+      const normalized = normalizeApiError(err);
+      Alert.alert('Check-out failed', normalized.message);
+    },
+  });
+
+  const handleArrivalAction = async (action: 'checkin' | 'checkout') => {
     const coords = await ensureForegroundPermission();
     if (!coords) {
-      Alert.alert('Location unavailable', 'Enable GPS to run the proximity preview.');
+      Alert.alert('Location unavailable', 'Enable GPS to check in or out.');
       return;
     }
-    if (!booking?.station || typeof booking.station !== 'object') {
-      Alert.alert('Missing station metadata', 'Backend did not include geo coordinates for this site.');
-      return;
-    }
-    const stationLike = booking.station as { latitude?: number; longitude?: number; lat?: number; lng?: number };
-    const lat = stationLike.lat ?? stationLike.latitude;
-    const lng = stationLike.lng ?? stationLike.longitude;
-    if (lat == null || lng == null) {
-      Alert.alert('Coordinates unavailable', 'Requires backend Phase 2 endpoint to enrich station geodata.');
-      return;
-    }
-    const d = distanceKm(coords.latitude, coords.longitude, lat, lng);
-    if (d <= 0.2) {
-      Alert.alert('You are near the station', 'Great time to plug in once your slot opens.');
+    
+    if (action === 'checkin') {
+      checkInMutation.mutate({ latitude: coords.latitude, longitude: coords.longitude });
     } else {
-      Alert.alert('Still en route', `About ${(d * 1000).toFixed(0)} meters to go.`);
+      checkOutMutation.mutate({ latitude: coords.latitude, longitude: coords.longitude });
     }
   };
 
@@ -135,11 +156,28 @@ export default function BookingDetailScreen(): JSX.Element {
       </Card>
 
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Arrival assist</Text>
+        <Text style={styles.sectionTitle}>Station Arrival</Text>
         <Text style={styles.bodyMuted}>
-          We compare your GPS with station coordinates entirely on-device — no hidden check-in API yet.
+          GPS check-in validates your physical presence at the station to prevent no-shows.
         </Text>
-        <Button variant="secondary" title="Preview proximity" onPress={() => void simulateArrival()} />
+        {booking.status === 'booked' ? (
+          <View style={{ gap: spacing.sm }}>
+            <Button
+              variant="primary"
+              title="Check In Now"
+              loading={checkInMutation.isPending}
+              onPress={() => handleArrivalAction('checkin')}
+            />
+            <Button
+              variant="secondary"
+              title="End Session & Check Out"
+              loading={checkOutMutation.isPending}
+              onPress={() => handleArrivalAction('checkout')}
+            />
+          </View>
+        ) : (
+          <Text style={styles.warnText}>This booking is {booking.status}. Arrival actions disabled.</Text>
+        )}
       </Card>
 
       {cancelable ? (

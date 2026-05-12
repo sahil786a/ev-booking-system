@@ -1,7 +1,8 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View, Alert } from 'react-native';
 
 import type { DiscoverStackParamList } from '../../navigation/UserNavigator';
 import AvailabilityBadge from '../../components/stations/AvailabilityBadge';
@@ -13,6 +14,7 @@ import Screen from '../../components/common/Screen';
 import { useStationAvailability, useStationDetail } from '../../hooks/useStations';
 import { useDeviceLocation } from '../../hooks/useLocation';
 import { distanceKm } from '../../services/distanceService';
+import { useStationRealtime } from '../../services/realtimeService';
 import { colors, spacing, typography } from '../../styles/theme';
 import { todayDateString } from '../../utils/dateFormat';
 import { normalizeApiError } from '../../api/client';
@@ -32,6 +34,9 @@ export default function StationDetailScreen(): JSX.Element {
     bookingDate: today,
     enabled: Number.isFinite(stationId),
   });
+  
+  const queryClient = useQueryClient();
+  useStationRealtime(Number.isFinite(stationId) ? stationId : undefined, queryClient);
 
   const station = stationQuery.data;
   const [arrivalHint, setArrivalHint] = useState<string | null>(null);
@@ -115,36 +120,27 @@ export default function StationDetailScreen(): JSX.Element {
       ) : null}
 
       <Card style={styles.arrival}>
-        <Text style={styles.sectionLabel}>Arrival assist</Text>
+        <Text style={styles.sectionLabel}>Station Check-In</Text>
         <Text style={styles.bodyMuted}>
-          Tap simulate proximity to preview the in-app prompt. Server-side validation requires backend Phase 2 endpoint.
+          GPS check-in is required when you arrive to confirm your reservation and prevent no-show cancellations.
         </Text>
         <Button
           variant="secondary"
-          title="Simulate proximity check"
+          title="Check in via Booking details"
           onPress={() => {
-            if (!station.lat || !station.lng || location.state.status !== 'ready') {
-              setArrivalHint('Need both station coordinates and GPS to evaluate proximity locally.');
-              return;
-            }
-            const d = distanceKm(
-              location.state.coords.latitude,
-              location.state.coords.longitude,
-              station.lat,
-              station.lng,
-            );
-            if (d <= 0.2) {
-              setArrivalHint('You are near the station • Ready to plug in when your slot opens.');
-            } else {
-              setArrivalHint(`Still ~${(d * 1000).toFixed(0)}m out — keep rolling.`);
-            }
+            navigation.navigate('BookingsTab', { screen: 'MyBookings' } as any);
           }}
         />
-        {arrivalHint ? <Text style={styles.hint}>{arrivalHint}</Text> : null}
         <Button
           variant="ghost"
-          title="Navigation preview (placeholder)"
-          onPress={() => navigation.navigate('ComingSoon', { title: 'In-app turn-by-turn' })}
+          title="Get Directions"
+          onPress={() => {
+            if (!station.lat || !station.lng) {
+              Alert.alert('No coordinates', 'This station does not have GPS coordinates set.');
+              return;
+            }
+            Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`);
+          }}
         />
       </Card>
 

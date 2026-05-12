@@ -3,6 +3,8 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
 const stationRoutes = require("./routes/station.routes");
 const bookingRoutes = require("./routes/booking.routes");
+const queueRoutes = require("./routes/queue.routes");
+const arrivalRoutes = require("./routes/arrival.routes");
 
 const app = express();
 
@@ -34,6 +36,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/stations", stationRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/queue", queueRoutes);
+app.use("/api/arrivals", arrivalRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

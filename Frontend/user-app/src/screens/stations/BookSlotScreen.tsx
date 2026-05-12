@@ -7,6 +7,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { createBooking } from '../../api/bookingApi';
+import { joinQueue, getQueueStatus } from '../../api/queueApi';
 import { normalizeApiError } from '../../api/client';
 import type { DiscoverStackParamList } from '../../navigation/UserNavigator';
 import AvailabilityBadge from '../../components/stations/AvailabilityBadge';
@@ -72,6 +73,26 @@ export default function BookSlotScreen(): JSX.Element {
     startTime: scope.start_time,
     endTime: scope.end_time,
     enabled: mode === 'scheduled',
+  });
+
+  const queueMutation = useMutation({
+    mutationFn: async () => {
+      const values = scheduledForm.getValues();
+      return joinQueue({
+        station_id: stationId,
+        booking_date: values.bookingDate,
+        start_time: normalizeTimeInput(values.startTime),
+        end_time: normalizeTimeInput(values.endTime),
+      });
+    },
+    onSuccess: () => {
+      Alert.alert('Joined Queue', 'You will be notified when a slot opens up.');
+      navigation.goBack();
+    },
+    onError: (error) => {
+      const normalized = normalizeApiError(error);
+      setFormError(normalized.message);
+    },
   });
 
   const bookingMutation = useMutation({
@@ -158,6 +179,14 @@ export default function BookSlotScreen(): JSX.Element {
               Could not read availability grid — you can still try to book and the API will enforce overlaps.
             </Text>
           ) : null}
+          {availabilityQuery.data?.available_slots === 0 && (
+             <Button
+               variant="secondary"
+               title="Join Waiting Queue"
+               loading={queueMutation.isPending}
+               onPress={() => queueMutation.mutate()}
+             />
+          )}
         </Card>
       ) : null}
 

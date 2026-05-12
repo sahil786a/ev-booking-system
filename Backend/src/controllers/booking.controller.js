@@ -97,6 +97,12 @@ const createBooking = async (req, res) => {
 
     await client.query("COMMIT");
 
+    const { emitSlotUpdate } = require("../socket");
+    emitSlotUpdate(stationId, {
+      available_slots: station.total_slots - activeBookings - 1,
+      total_slots: station.total_slots,
+    });
+
     return res.status(201).json({
       message: "Booking created successfully",
       booking: bookingResult.rows[0],
@@ -262,6 +268,26 @@ cancelBooking = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         message: "Active booking not found for this user",
+      });
+    }
+
+    const { emitSlotUpdate } = require("../socket");
+    
+    // Calculate new availability to emit
+    const activeResult = await pool.query(
+      `SELECT COUNT(*)::int AS active_bookings FROM bookings WHERE station_id = $1 AND status = 'booked' AND slot_start < $3 AND slot_end > $2`,
+      [result.rows[0].station_id, result.rows[0].slot_start, result.rows[0].slot_end]
+    );
+    const stationResult = await pool.query(
+      `SELECT total_slots FROM stations WHERE id = $1`, [result.rows[0].station_id]
+    );
+    
+    if (stationResult.rows.length > 0) {
+      const active = activeResult.rows[0].active_bookings;
+      const total = stationResult.rows[0].total_slots;
+      emitSlotUpdate(result.rows[0].station_id, {
+        available_slots: Math.max(0, total - active),
+        total_slots: total
       });
     }
 

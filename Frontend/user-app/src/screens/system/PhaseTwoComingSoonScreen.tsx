@@ -18,13 +18,12 @@ export default function PhaseTwoComingSoonScreen(): JSX.Element {
     <Screen>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.lead}>
-        This experience needs a backend contract for sockets, no-show automation, or operator-facing webhooks. Until those ship, the mobile client polls REST
-        endpoints so you’re never blocked.
+        This feature relies on native device APIs and third-party map integrations (like Google Maps or Mapbox).
       </Text>
       <Card>
-        <Text style={styles.bullet}>• WebSocket or SSE channel for reservations (Requires backend Phase 2 endpoint).</Text>
-        <Text style={styles.bullet}>• Server-triggered no-show + refunds (Requires backend Phase 2 endpoint).</Text>
-        <Text style={styles.bullet}>• Push device registration (Requires backend Phase 2 endpoint).</Text>
+        <Text style={styles.bullet}>• In-app turn-by-turn navigation (Coming in Mobile V2).</Text>
+        <Text style={styles.bullet}>• Advanced Map routing & traffic data.</Text>
+        <Text style={styles.bullet}>• (Backend APIs for live sockets and arrivals are fully operational!)</Text>
       </Card>
     </Screen>
   );

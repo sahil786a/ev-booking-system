@@ -115,8 +115,8 @@ export default function HomeScreen(): JSX.Element {
         <Shortcut icon={<MapPin color="#fff" size={18} />} label="Nearby" onPress={() => navigation.navigate('Nearby')} />
         <Shortcut
           icon={<Navigation color="#fff" size={18} />}
-          label="Navigate"
-          onPress={() => navigation.navigate('ComingSoon', { title: 'Turn-by-turn routing' })}
+          label="Map View"
+          onPress={() => navigation.navigate('Nearby')}
         />
         <Shortcut
           icon={<Radar color="#fff" size={18} />}
@@ -185,8 +185,7 @@ export default function HomeScreen(): JSX.Element {
         <View style={styles.brandCopy}>
           <Text style={styles.brandTitle}>Next up on the roadmap</Text>
           <Text style={styles.brandSubtitle}>
-            Arrival assist, vendor-side no-show sync, and real-time slot websockets are slated once the backend exposes
-            those contracts.
+            Smart waiting queues, GPS check-ins, and live websockets are fully active! Next up: Payments Gateway and Offline SMS Booking.
           </Text>
         </View>
       </View>
