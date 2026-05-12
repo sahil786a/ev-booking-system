@@ -41,6 +41,15 @@ export default function StationDetailScreen(): JSX.Element {
   const station = stationQuery.data;
   const [arrivalHint, setArrivalHint] = useState<string | null>(null);
 
+  // Refresh location when screen mounts to ensure fresh coordinates
+  useEffect(() => {
+    if (location.state.status === 'unknown') {
+      location.refresh().catch(() => {
+        console.error('Failed to refresh location');
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!Number.isFinite(stationId)) {
       navigation.replace('NotFound');
@@ -49,10 +58,19 @@ export default function StationDetailScreen(): JSX.Element {
 
   const distanceLabel = useMemo(() => {
     if (!station || location.state.status !== 'ready') return null;
-    const lat = station.lat ?? null;
-    const lng = station.lng ?? null;
-    if (lat == null || lng == null) return 'Add coordinates to this station to unlock distance math.';
-    const d = distanceKm(location.state.coords.latitude, location.state.coords.longitude, lat, lng);
+    const lat = Number(station.lat ?? station.latitude);
+    const lng = Number(station.lng ?? station.longitude);
+    const userLat = location.state.coords.latitude;
+    const userLng = location.state.coords.longitude;
+    
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return 'Coordinates not available';
+    }
+    
+    const d = distanceKm(userLat, userLng, lat, lng);
+    if (!Number.isFinite(d) || d < 0) {
+      return 'Unable to calculate distance';
+    }
     return `${d.toFixed(1)} km away`;
   }, [location.state, station]);
 

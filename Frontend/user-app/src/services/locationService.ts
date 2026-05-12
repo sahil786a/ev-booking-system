@@ -17,8 +17,11 @@ export async function ensureForegroundPermission(): Promise<GeoPosition | null> 
   if (!res.granted) return null;
 
   try {
+    // Use HIGH accuracy for better distance calculations
     const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: Location.Accuracy.High,
+      timeInterval: 1000,
+      distanceInterval: 0,
     });
     return {
       latitude: pos.coords.latitude,
@@ -28,6 +31,7 @@ export async function ensureForegroundPermission(): Promise<GeoPosition | null> 
   } catch {
     return null;
   }
+}
 }
 
 export async function getPermissionStatus(): Promise<Location.PermissionStatus> {
