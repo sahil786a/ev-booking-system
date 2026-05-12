@@ -81,17 +81,24 @@ const addStation = async (req, res) => {
       validation.value;
 
     const result = await pool.query(
-      `INSERT INTO stations (vendor_id, name, latitude, longitude, contact, total_slots)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO stations (vendor_id, name, latitude, longitude, contact, total_slots, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
        RETURNING *`,
       [vendorId, name, latitude, longitude, contact, total_slots]
     );
+
+    if (!result.rows || result.rows.length === 0) {
+      return res.status(500).json({
+        message: "Failed to create station",
+      });
+    }
 
     return res.status(201).json({
       message: "Station added successfully",
       station: result.rows[0],
     });
   } catch (error) {
+    console.error("Error adding station:", error.message);
     return res.status(500).json({
       message: "Server error while adding station",
     });
@@ -154,9 +161,10 @@ const getMyStations = async (req, res) => {
     );
 
     return res.status(200).json({
-      stations: result.rows,
+      stations: result.rows || [],
     });
   } catch (error) {
+    console.error("Error fetching vendor stations:", error.message);
     return res.status(500).json({
       message: "Server error while fetching vendor stations",
     });

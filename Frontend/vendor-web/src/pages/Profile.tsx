@@ -1,7 +1,6 @@
 import React from 'react';
 import { Building2, Mail, Phone, Shield, User, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { Badge } from '@/components/common/Badge';
 
 const ProfileRow: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({
   icon, label, value,
@@ -32,43 +31,30 @@ const Profile: React.FC = () => {
 
       {/* Profile card */}
       <div className="card overflow-hidden">
-        {/* Banner */}
-        <div className="h-24 bg-gradient-to-br from-emerald-600 to-teal-500 relative">
-          <div className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-              backgroundSize: '20px 20px',
-            }}
-          />
-        </div>
-
         {/* Avatar + name */}
-        <div className="px-6 pb-6">
-          <div className="-mt-8 mb-4 flex items-end gap-4">
+        <div className="px-6 py-6">
+          <div className="mb-6 flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-white border-4 border-white shadow-md flex items-center justify-center bg-gradient-to-br from-emerald-400 to-teal-500">
               <span className="text-white text-2xl font-bold">
-                {vendor.name.charAt(0).toUpperCase()}
+                {(vendor.name || 'V').charAt(0).toUpperCase()}
               </span>
             </div>
-            <div className="mb-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">{vendor.name}</h2>
-                <Badge variant="active">
-                  <Shield size={10} />
-                  Verified
-                </Badge>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-lg font-bold text-slate-900">{vendor.name || 'Vendor'}</h2>
+                <Shield size={14} className="text-emerald-600" />
               </div>
-              <p className="text-sm text-slate-500">{vendor.business_name}</p>
+              <p className="text-sm text-slate-500">{vendor.business_name || 'N/A'}</p>
             </div>
           </div>
 
           {/* Info rows */}
-          <ProfileRow icon={<User size={15} />}     label="Full Name"     value={vendor.name} />
-          <ProfileRow icon={<Building2 size={15} />} label="Business Name" value={vendor.business_name} />
-          <ProfileRow icon={<Mail size={15} />}     label="Email Address" value={vendor.email} />
-          <ProfileRow icon={<Phone size={15} />}    label="Phone Number"  value={vendor.phone} />
+          <ProfileRow icon={<User size={15} />}     label="Full Name"     value={vendor.name || 'N/A'} />
+          <ProfileRow icon={<Building2 size={15} />} label="Business Name" value={vendor.business_name || 'N/A'} />
+          <ProfileRow icon={<Mail size={15} />}     label="Email Address" value={vendor.email || 'N/A'} />
+          <ProfileRow icon={<Phone size={15} />}    label="Phone Number"  value={vendor.phone || 'N/A'} />
           <ProfileRow icon={<Zap size={15} />}      label="Role"          value="Vendor" />
-          <ProfileRow icon={<Shield size={15} />}   label="Vendor ID"     value={`#${vendor.id}`} />
+          <ProfileRow icon={<Shield size={15} />}   label="Vendor ID"     value={`#${vendor.id || 'N/A'}`} />
         </div>
       </div>
 
