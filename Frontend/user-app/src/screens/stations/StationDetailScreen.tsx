@@ -1,4 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -20,7 +22,14 @@ import { colors, spacing, typography } from '../../styles/theme';
 import { todayDateString } from '../../utils/dateFormat';
 import { normalizeApiError } from '../../api/client';
 
-type Nav = NativeStackNavigationProp<DiscoverStackParamList, 'StationDetail'>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<DiscoverStackParamList, 'StationDetail'>,
+  BottomTabNavigationProp<{
+    Discover: undefined;
+    BookingsTab: { screen?: string; params?: Record<string, unknown> } | undefined;
+    ProfileTab: { screen?: string; params?: Record<string, unknown> } | undefined;
+  }>
+>;
 type Route = RouteProp<DiscoverStackParamList, 'StationDetail'>;
 
 export default function StationDetailScreen(): JSX.Element {
@@ -147,7 +156,7 @@ export default function StationDetailScreen(): JSX.Element {
           variant="secondary"
           title="Check in via Booking details"
           onPress={() => {
-            navigation.navigate('BookingsTab', { screen: 'MyBookings' } as any);
+            navigation.navigate('BookingsTab', { screen: 'MyBookings' });
           }}
         />
         <Button

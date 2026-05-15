@@ -63,7 +63,7 @@ export function useStationRealtime(stationId: number | string | undefined, clien
       if (String(data.station_id) !== sid) return;
       console.log(`[Socket] slot_update for station:${sid}`, data);
       void client.invalidateQueries({ queryKey: stationQueryKeys.detail(numericId) });
-      void client.invalidateQueries({ queryKey: stationQueryKeys.availability(numericId) });
+      void client.invalidateQueries({ queryKey: ['station', numericId, 'availability'] });
       void client.invalidateQueries({ queryKey: bookingQueryKeys.mine });
     };
 
